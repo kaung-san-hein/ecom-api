@@ -13,6 +13,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { UserSignUpDto } from './dto/user-signup.dto';
 import { UserEntity } from './entities/user.entity';
 import { UserSignInDto } from './dto/user-signin.dto';
+import { CurrentUser } from './utility/decorators/current-user.decorator';
 
 @Controller('users')
 export class UsersController {
@@ -37,6 +38,11 @@ export class UsersController {
       accessToken,
       user,
     };
+  }
+
+  @Get('me')
+  getProfile(@CurrentUser() currentUser: UserEntity) {
+    return currentUser;
   }
 
   @Post()
