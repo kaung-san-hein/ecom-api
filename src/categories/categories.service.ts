@@ -4,7 +4,6 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CategoryEntity } from './entities/category.entity';
 import { Repository } from 'typeorm';
-import { UserEntity } from 'src/users/entities/user.entity';
 
 @Injectable()
 export class CategoriesService {
@@ -13,12 +12,8 @@ export class CategoriesService {
     private readonly categoryRespository: Repository<CategoryEntity>,
   ) {}
 
-  async create(
-    createCategoryDto: CreateCategoryDto,
-    currentUser: UserEntity,
-  ): Promise<CategoryEntity> {
+  async create(createCategoryDto: CreateCategoryDto): Promise<CategoryEntity> {
     const category = this.categoryRespository.create(createCategoryDto);
-    category.addedBy = currentUser;
     return await this.categoryRespository.save(category);
   }
 
@@ -29,14 +24,6 @@ export class CategoriesService {
   async findOne(id: number): Promise<CategoryEntity> {
     return await this.categoryRespository.findOne({
       where: { id },
-      relations: { addedBy: true },
-      select: {
-        addedBy: {
-          id: true,
-          name: true,
-          email: true,
-        },
-      },
     });
   }
 
@@ -52,7 +39,10 @@ export class CategoriesService {
     return await this.categoryRespository.save(category);
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} category`;
+  async remove(id: number) {
+    const category = await this.findOne(id);
+    if (!category) throw new NotFoundException('Category not found!');
+
+    return await this.categoryRespository.delete(category.id);
   }
 }

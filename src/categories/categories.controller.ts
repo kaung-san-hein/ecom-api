@@ -11,8 +11,6 @@ import {
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
-import { CurrentUser } from 'src/users/utility/decorators/current-user.decorator';
-import { UserEntity } from 'src/users/entities/user.entity';
 import { AuthenticationGuard } from 'src/users/utility/guards/authentication.guard';
 import { AuthorizeGuard } from 'src/users/utility/guards/authorization.guard';
 import { Roles } from 'src/users/utility/common/user-roles.enum';
@@ -26,9 +24,8 @@ export class CategoriesController {
   @Post()
   async create(
     @Body() createCategoryDto: CreateCategoryDto,
-    @CurrentUser() currentUser: UserEntity,
   ): Promise<CategoryEntity> {
-    return await this.categoriesService.create(createCategoryDto, currentUser);
+    return await this.categoriesService.create(createCategoryDto);
   }
 
   @Get()
