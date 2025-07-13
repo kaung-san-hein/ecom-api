@@ -3,8 +3,6 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 INSERT INTO products (
   id, name, description, price, stock, category, sku, images, "isActive", brand, "createdAt", "updatedAt"
 )
-
--- Products
 SELECT uuid_generate_v4(), 'iPhone 15 Pro', 'Latest Apple smartphone with A17 Pro chip', 999.99, 50, 'Electronics', 'IPH15P001', 'https://example.com/iphone15pro.jpg', true, 'Apple', NOW(), NOW()
 UNION ALL
 SELECT uuid_generate_v4(), 'Samsung Galaxy S24', 'Premium Android smartphone with AI features', 899.99, 45, 'Electronics', 'SGS24001', 'https://example.com/galaxys24.jpg', true, 'Samsung', NOW(), NOW()

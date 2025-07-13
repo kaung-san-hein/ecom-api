@@ -43,8 +43,8 @@ export class ProductsService {
       isActive,
       page,
       limit,
-      sortBy,
-      sortOrder,
+      sortBy = 'createdAt', // ✅ default sort field
+      sortOrder = 'DESC', // ✅ default sort direction
     } = queryDto;
 
     const queryBuilder = this.productsRepository.createQueryBuilder('product');

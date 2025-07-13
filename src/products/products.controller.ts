@@ -17,6 +17,7 @@ import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { QueryProductDto } from './dto/query-product.dto';
+import { UpdateStockDto } from './dto/update-stock.dto';
 
 @Controller('products')
 export class ProductsController {
@@ -76,9 +77,9 @@ export class ProductsController {
   @Patch(':id/stock')
   async updateStock(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body('quantity') quantity: number,
+    @Body() updateStockDto: UpdateStockDto,
   ) {
-    return await this.productsService.updateStock(id, quantity);
+    return await this.productsService.updateStock(id, updateStockDto.quantity);
   }
 
   @Delete(':id')
