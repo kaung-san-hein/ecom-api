@@ -150,14 +150,24 @@ export class ProductsService {
     return await this.productsRepository.save(product);
   }
 
-  async getCategories(): Promise<string[]> {
+  async getCategories() {
     const result = await this.productsRepository
       .createQueryBuilder('product')
-      .select('DISTINCT product.category', 'category')
+      .select('product.category', 'category')
+      .addSelect('COUNT(*)', 'count')
+      .addSelect(
+        'MIN(product.images)', // or any method to get one image per category
+        'image',
+      )
       .where('product.category IS NOT NULL')
+      .groupBy('product.category')
       .getRawMany();
 
-    return result.map((item) => item.category);
+    return result.map((item) => ({
+      name: item.category,
+      image: item.image,
+      count: Number(item.count),
+    }));
   }
 
   async getBrands(): Promise<string[]> {
