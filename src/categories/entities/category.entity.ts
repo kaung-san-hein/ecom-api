@@ -15,6 +15,9 @@ export class CategoryEntity {
   @Column()
   name: string;
 
+  @Column({ type: 'varchar', nullable: true })
+  image: string;
+
   @CreateDateColumn()
   createdAt: Timestamp;
 
