@@ -9,9 +9,10 @@ import { CategoriesModule } from './categories/categories.module';
 import { BrandsModule } from './brands/brands.module';
 import { ProductsModule } from './products/products.module';
 import { OrdersModule } from './orders/orders.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
-  imports: [TypeOrmModule.forRoot(dataSourceOptions), UsersModule, CategoriesModule, BrandsModule, ProductsModule, OrdersModule],
+  imports: [TypeOrmModule.forRoot(dataSourceOptions), UsersModule, CategoriesModule, BrandsModule, ProductsModule, OrdersModule, DashboardModule],
   controllers: [AppController],
   providers: [AppService],
 })
