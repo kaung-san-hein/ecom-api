@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
+import { OrderReportDto } from './dto/report.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { OrderEntity } from './entities/order.entity';
 import { OrderItemEntity } from './entities/order-item.entity';
@@ -206,5 +207,191 @@ export class OrdersService {
     }
     
     return await this.orderRepository.delete(order.id);
+  }
+
+  async getReport(): Promise<OrderReportDto> {
+    // Get current year
+    const currentYear = new Date().getFullYear();
+    const years = [2023, 2024, 2025];
+    
+    // Initialize report data structure
+    const report = {
+      monthlyOrders: {},
+      monthlyRevenue: {},
+      totalOrders: 0,
+      totalRevenue: 0,
+      averageOrderValue: 0,
+      topProducts: [],
+      orderStatusDistribution: {},
+      recentOrders: [],
+      yearlyComparison: {}
+    };
+
+    // Get monthly orders and revenue for each year
+    for (const year of years) {
+      // Initialize year data
+      report.monthlyOrders[year] = Array(12).fill(0);
+      report.monthlyRevenue[year] = Array(12).fill(0);
+
+      // Get all orders and filter by year in JavaScript
+      const allOrders = await this.orderRepository
+        .createQueryBuilder('order')
+        .select(['order.date', 'order.total'])
+        .getMany();
+
+      // Filter orders for this year
+      const yearOrders = allOrders.filter(order => {
+        const orderYear = new Date(order.date).getFullYear();
+        return orderYear === year;
+      });
+
+      if (yearOrders.length > 0) {
+        
+        // Manually group by month
+        const monthlyGroups: { [key: number]: { count: number; revenue: number } } = {};
+        yearOrders.forEach(order => {
+          const month = new Date(order.date).getMonth(); // 0-11
+          if (!monthlyGroups[month]) {
+            monthlyGroups[month] = {
+              count: 0,
+              revenue: 0
+            };
+          }
+          monthlyGroups[month].count++;
+          monthlyGroups[month].revenue += Number(order.total) || 0;
+        });
+
+        // Populate the arrays
+        for (let month = 0; month < 12; month++) {
+          if (monthlyGroups[month]) {
+            report.monthlyOrders[year][month] = monthlyGroups[month].count;
+            report.monthlyRevenue[year][month] = monthlyGroups[month].revenue;
+          }
+        }
+      }
+    }
+
+    // Get overall statistics
+    const overallStats = await this.orderRepository
+      .createQueryBuilder('order')
+      .select([
+        'COUNT(order.id) as totalOrders',
+        'SUM(order.total) as totalRevenue',
+        'AVG(order.total) as averageOrderValue'
+      ])
+      .getRawOne();
+
+    report.totalOrders = parseInt(overallStats?.totalOrders) || 0;
+    report.totalRevenue = parseFloat(overallStats?.totalRevenue) || 0;
+    report.averageOrderValue = parseFloat(overallStats?.averageOrderValue) || 0;
+
+    // Get top selling products
+    try {
+      const topProducts = await this.orderItemRepository
+        .createQueryBuilder('orderItem')
+        .leftJoin('orderItem.product', 'product')
+        .select([
+          'product.name as productName',
+          'SUM(orderItem.quantity) as totalQuantity',
+          'SUM(orderItem.subtotal) as totalRevenue'
+        ])
+        .groupBy('product.id, product.name')
+        .orderBy('totalQuantity', 'DESC')
+        .limit(10)
+        .getRawMany();
+
+      report.topProducts = topProducts
+        .filter(item => item.productName && item.totalQuantity)
+        .map(item => ({
+          name: item.productName,
+          quantity: parseInt(item.totalQuantity) || 0,
+          revenue: parseFloat(item.totalRevenue) || 0
+        }));
+    } catch (error) {
+      console.error('Error fetching top products:', error);
+      report.topProducts = [];
+    }
+
+    // Get order status distribution
+    const statusDistribution = await this.orderRepository
+      .createQueryBuilder('order')
+      .select([
+        'order.status as status',
+        'COUNT(order.id) as count'
+      ])
+      .groupBy('order.status')
+      .getRawMany();
+
+    statusDistribution.forEach(item => {
+      if (item.status && item.count) {
+        report.orderStatusDistribution[item.status] = parseInt(item.count) || 0;
+      }
+    });
+
+    // Get recent orders (last 10)
+    const recentOrders = await this.orderRepository
+      .createQueryBuilder('order')
+      .leftJoin('order.user', 'user')
+      .select([
+        'order.id as id',
+        'order.date as date',
+        'order.total as total',
+        'order.status as status',
+        'user.name as customerName'
+      ])
+      .orderBy('order.createdAt', 'DESC')
+      .limit(10)
+      .getRawMany();
+
+    report.recentOrders = recentOrders
+      .filter(order => order.id && order.date)
+      .map(order => ({
+        id: order.id,
+        date: order.date,
+        total: parseFloat(order.total) || 0,
+        status: order.status || 'pending',
+        customerName: order.customerName || 'Unknown'
+      }));
+
+    // Get year-over-year comparison
+    const yearlyData = {};
+    
+    // Get all orders and filter by years in JavaScript
+    const allOrdersForComparison = await this.orderRepository
+      .createQueryBuilder('order')
+      .select(['order.date', 'order.total'])
+      .getMany();
+
+    // Filter orders for the specified years
+    const filteredOrders = allOrdersForComparison.filter(order => {
+      const orderYear = new Date(order.date).getFullYear();
+      return years.includes(orderYear);
+    });
+
+    // Manually group by year
+    const yearlyGroups: { [key: number]: { orders: number; revenue: number } } = {};
+    filteredOrders.forEach(order => {
+      const year = new Date(order.date).getFullYear();
+      if (!yearlyGroups[year]) {
+        yearlyGroups[year] = {
+          orders: 0,
+          revenue: 0
+        };
+      }
+      yearlyGroups[year].orders++;
+      yearlyGroups[year].revenue += Number(order.total) || 0;
+    });
+
+    // Populate yearly data
+    years.forEach(year => {
+      yearlyData[year] = {
+        orders: yearlyGroups[year]?.orders || 0,
+        revenue: yearlyGroups[year]?.revenue || 0
+      };
+    });
+
+    report.yearlyComparison = yearlyData;
+
+    return report;
   }
 } 

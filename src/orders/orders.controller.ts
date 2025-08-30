@@ -17,6 +17,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
+import { OrderReportDto } from './dto/report.dto';
 import { AuthenticationGuard } from 'src/users/utility/guards/authentication.guard';
 import { AuthorizeGuard } from 'src/users/utility/guards/authorization.guard';
 import { Roles } from 'src/users/utility/common/user-roles.enum';
@@ -73,6 +74,12 @@ export class OrdersController {
     // Admins can see all orders
     const userId = user.roles[0] === Roles.ADMIN ? undefined : user.id;
     return await this.ordersService.findAll(userId);
+  }
+
+  @Get('report')
+  @UseGuards(AuthorizeGuard([Roles.ADMIN]))
+  async getReport(): Promise<OrderReportDto> {
+    return await this.ordersService.getReport();
   }
 
   @Get(':id')
