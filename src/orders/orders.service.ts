@@ -227,6 +227,10 @@ export class OrdersService {
       yearlyComparison: {}
     };
 
+
+
+
+
     // Get monthly orders and revenue for each year
     for (const year of years) {
       // Initialize year data
@@ -271,19 +275,26 @@ export class OrdersService {
       }
     }
 
-    // Get overall statistics
-    const overallStats = await this.orderRepository
-      .createQueryBuilder('order')
-      .select([
-        'COUNT(order.id) as totalOrders',
-        'SUM(order.total) as totalRevenue',
-        'AVG(order.total) as averageOrderValue'
-      ])
-      .getRawOne();
+    // Get overall statistics using a simpler approach
+    try {
+      const totalOrders = await this.orderRepository.count();
+      const allOrders = await this.orderRepository.find({ select: ['total'] });
+      
+      const totalRevenue = allOrders.reduce((sum, order) => sum + Number(order.total || 0), 0);
+      const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+      
+      report.totalOrders = totalOrders;
+      report.totalRevenue = totalRevenue;
+      report.averageOrderValue = averageOrderValue;
+    } catch (error) {
+      console.error('Error calculating overall statistics:', error);
+      // Set default values if there's an error
+      report.totalOrders = 0;
+      report.totalRevenue = 0;
+      report.averageOrderValue = 0;
+    }
 
-    report.totalOrders = parseInt(overallStats?.totalOrders) || 0;
-    report.totalRevenue = parseFloat(overallStats?.totalRevenue) || 0;
-    report.averageOrderValue = parseFloat(overallStats?.averageOrderValue) || 0;
+
 
     // Get top selling products
     try {
