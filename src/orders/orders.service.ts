@@ -39,7 +39,7 @@ export class OrdersService {
     return orders.map(order => this.transformOrder(order));
   }
 
-  async create(createOrderDto: CreateOrderDto & { payment_image: string }, userId: number): Promise<OrderEntity> {
+  async create(createOrderDto: CreateOrderDto & { payment_image: string | null }, userId: number): Promise<OrderEntity> {
     // Calculate total and validate products
     let total = 0;
     const orderItems: Partial<OrderItemEntity>[] = [];
@@ -150,23 +150,19 @@ export class OrdersService {
   async update(id: number, updateOrderDto: Partial<UpdateOrderDto>, userId?: number): Promise<OrderEntity> {
     const order = await this.findOne(id, userId);
 
-    // Update order fields
+    // Update order fields - only phone, address, and payment_image
     const updateData: Partial<OrderEntity> = {};
-    
-    if (updateOrderDto.date) {
-      updateData.date = new Date(updateOrderDto.date);
-    }
-    
-    if (updateOrderDto.payment_image) {
-      updateData.payment_image = updateOrderDto.payment_image;
-    }
 
-    if (updateOrderDto.phone) {
+    if (updateOrderDto.phone !== undefined) {
       updateData.phone = updateOrderDto.phone;
     }
 
-    if (updateOrderDto.address) {
+    if (updateOrderDto.address !== undefined) {
       updateData.address = updateOrderDto.address;
+    }
+
+    if (updateOrderDto.payment_image !== undefined) {
+      updateData.payment_image = updateOrderDto.payment_image;
     }
 
     if (Object.keys(updateData).length > 0) {

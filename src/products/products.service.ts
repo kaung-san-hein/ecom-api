@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { QueryProductDto } from './dto/query-product.dto';
 import { CreateProductWithImagesDto } from './dto/create-product-with-images.dto';
 import { UpdateProductWithImagesDto } from './dto/update-product-with-images.dto';
+import { ProductResponseDto } from './dto/product-response.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ProductEntity } from './entities/product.entity';
 import { Repository, Like, Between } from 'typeorm';
@@ -22,21 +23,35 @@ export class ProductsService {
     return images.map(image => `${this.domainPrefix}/${image}`);
   }
 
-  private transformProduct(product: ProductEntity): ProductEntity {
-    if (product.images) {
-      product.images = this.transformImages(product.images);
+  private calculateSalePrice(price: number, discountPercentage?: number): number {
+    if (!discountPercentage || discountPercentage <= 0) {
+      return price;
     }
-    return product;
+    
+    const discountAmount = (price * discountPercentage) / 100;
+    const salePrice = price - discountAmount;
+    
+    // Round to 2 decimal places
+    return Math.round(salePrice * 100) / 100;
   }
 
-  private transformProducts(products: ProductEntity[]): ProductEntity[] {
+  private transformProduct(product: ProductEntity): ProductResponseDto {
+    const response: ProductResponseDto = {
+      ...product,
+      images: product.images ? this.transformImages(product.images) : [],
+      salePrice: this.calculateSalePrice(product.price, product.discountPercentage),
+    };
+    return response;
+  }
+
+  private transformProducts(products: ProductEntity[]): ProductResponseDto[] {
     return products.map(product => this.transformProduct(product));
   }
 
   async create(
     createProductDto: CreateProductWithImagesDto,
     files: Express.Multer.File[],
-  ): Promise<ProductEntity> {
+  ): Promise<ProductResponseDto> {
     const imagePaths: string[] = [];
     
     if (files && files.length > 0) {
@@ -85,7 +100,7 @@ export class ProductsService {
     return this.transformProduct(productWithRelations);
   }
 
-  async findAll(query: QueryProductDto = {}): Promise<ProductEntity[]> {
+  async findAll(query: QueryProductDto = {}): Promise<ProductResponseDto[]> {
     const {
       search,
       category_id,
@@ -153,7 +168,7 @@ export class ProductsService {
     return this.transformProducts(products);
   }
 
-  async findOne(id: number): Promise<ProductEntity> {
+  async findOne(id: number): Promise<ProductResponseDto> {
     const product = await this.productRepository.findOne({
       where: { id },
       relations: ['category', 'brand'],
@@ -166,7 +181,7 @@ export class ProductsService {
     return this.transformProduct(product);
   }
 
-  async findFeatured(): Promise<ProductEntity[]> {
+  async findFeatured(): Promise<ProductResponseDto[]> {
     const products = await this.productRepository.find({
       where: { isFeatured: true, isActive: true },
       relations: ['category', 'brand'],
@@ -181,7 +196,7 @@ export class ProductsService {
     id: number,
     updateProductDto: Partial<UpdateProductWithImagesDto>,
     files: Express.Multer.File[],
-  ): Promise<ProductEntity> {
+  ): Promise<ProductResponseDto> {
     // Get the raw product from database (without domain prefix)
     const rawProduct = await this.productRepository.findOne({
       where: { id },
@@ -265,14 +280,14 @@ export class ProductsService {
     return await this.productRepository.delete(rawProduct.id);
   }
 
-  async updateStock(id: number, quantity: number): Promise<ProductEntity> {
+  async updateStock(id: number, quantity: number): Promise<ProductResponseDto> {
     const product = await this.findOne(id);
     product.stock = quantity;
     const savedProduct = await this.productRepository.save(product);
     return this.transformProduct(savedProduct);
   }
 
-  async deleteImage(id: number, imageIndex: number): Promise<ProductEntity> {
+  async deleteImage(id: number, imageIndex: number): Promise<ProductResponseDto> {
     // Get the raw product from database (without domain prefix)
     const rawProduct = await this.productRepository.findOne({
       where: { id },

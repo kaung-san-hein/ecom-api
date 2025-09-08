@@ -22,7 +22,7 @@ import { UpdateProductWithImagesDto } from './dto/update-product-with-images.dto
 import { AuthenticationGuard } from 'src/users/utility/guards/authentication.guard';
 import { AuthorizeGuard } from 'src/users/utility/guards/authorization.guard';
 import { Roles } from 'src/users/utility/common/user-roles.enum';
-import { ProductEntity } from './entities/product.entity';
+import { ProductResponseDto } from './dto/product-response.dto';
 
 @Controller('products')
 export class ProductsController {
@@ -43,22 +43,22 @@ export class ProductsController {
       }),
     )
     files: Express.Multer.File[],
-  ): Promise<ProductEntity> {
+  ): Promise<ProductResponseDto> {
     return await this.productsService.create(createProductDto, files);
   }
 
   @Get()
-  async findAll(@Query() query: QueryProductDto): Promise<ProductEntity[]> {
+  async findAll(@Query() query: QueryProductDto): Promise<ProductResponseDto[]> {
     return await this.productsService.findAll(query);
   }
 
   @Get('featured')
-  async findFeatured(): Promise<ProductEntity[]> {
+  async findFeatured(): Promise<ProductResponseDto[]> {
     return await this.productsService.findFeatured();
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string): Promise<ProductEntity> {
+  async findOne(@Param('id') id: string): Promise<ProductResponseDto> {
     return await this.productsService.findOne(+id);
   }
 
@@ -78,7 +78,7 @@ export class ProductsController {
       }),
     )
     files: Express.Multer.File[],
-  ): Promise<ProductEntity> {
+  ): Promise<ProductResponseDto> {
     return await this.productsService.update(+id, updateProductDto, files);
   }
 
@@ -87,7 +87,7 @@ export class ProductsController {
   async updateStock(
     @Param('id') id: string,
     @Body() body: { quantity: number },
-  ): Promise<ProductEntity> {
+  ): Promise<ProductResponseDto> {
     return await this.productsService.updateStock(+id, body.quantity);
   }
 
@@ -96,7 +96,7 @@ export class ProductsController {
   async deleteImage(
     @Param('id') id: string,
     @Param('imageIndex') imageIndex: string,
-  ): Promise<ProductEntity> {
+  ): Promise<ProductResponseDto> {
     return await this.productsService.deleteImage(+id, +imageIndex);
   }
 

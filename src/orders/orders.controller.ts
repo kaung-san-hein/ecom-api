@@ -42,27 +42,32 @@ export class OrdersController {
           new MaxFileSizeValidator({ maxSize: 5 * 1024 * 1024 }), // 5MB
           new FileTypeValidator({ fileType: '.(jpg|jpeg|png|gif|webp)' }),
         ],
-        fileIsRequired: true,
+        fileIsRequired: false,
       }),
     )
-    file: Express.Multer.File,
+    file?: Express.Multer.File,
   ): Promise<OrderEntity> {
-    const fileName = `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname)}`;
-    const filePath = path.join('uploads/payments', fileName);
-    const fullPath = path.join(process.cwd(), filePath);
-    
-    // Ensure directory exists
-    const dir = path.dirname(fullPath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+    let paymentImagePath: string | null = null;
+
+    if (file) {
+      const fileName = `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname)}`;
+      const filePath = path.join('uploads/payments', fileName);
+      const fullPath = path.join(process.cwd(), filePath);
+      
+      // Ensure directory exists
+      const dir = path.dirname(fullPath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      
+      // Write file
+      fs.writeFileSync(fullPath, file.buffer);
+      paymentImagePath = filePath;
     }
-    
-    // Write file
-    fs.writeFileSync(fullPath, file.buffer);
 
     const orderData = {
       ...createOrderDto,
-      payment_image: filePath,
+      payment_image: paymentImagePath,
     };
 
     return await this.ordersService.create(orderData, user.id);
@@ -91,16 +96,49 @@ export class OrdersController {
     return await this.ordersService.findOne(+id, userId);
   }
 
-  @UseGuards(AuthorizeGuard([Roles.ADMIN]))
   @Patch(':id')
+  @UseInterceptors(FileInterceptor('payment_image'))
   async update(
     @Param('id') id: string,
     @Body() updateOrderDto: Partial<UpdateOrderDto>,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 5 * 1024 * 1024 }), // 5MB
+          new FileTypeValidator({ fileType: '.(jpg|jpeg|png|gif|webp)' }),
+        ],
+        fileIsRequired: false,
+      }),
+    )
+    file?: Express.Multer.File,
   ): Promise<OrderEntity> {
-    return await this.ordersService.update(+id, updateOrderDto);
+    let paymentImagePath: string | undefined = undefined;
+
+    if (file) {
+      const fileName = `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname)}`;
+      const filePath = path.join('uploads/payments', fileName);
+      const fullPath = path.join(process.cwd(), filePath);
+      
+      // Ensure directory exists
+      const dir = path.dirname(fullPath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      
+      // Write file
+      fs.writeFileSync(fullPath, file.buffer);
+      paymentImagePath = filePath;
+    }
+
+    const orderData = {
+      ...updateOrderDto,
+      payment_image: paymentImagePath,
+    };
+
+    return await this.ordersService.update(+id, orderData);
   }
 
-  @UseGuards(AuthorizeGuard([Roles.ADMIN]))
+  // @UseGuards(AuthorizeGuard([Roles.ADMIN]))
   @Patch(':id/status')
   async updateStatus(
     @Param('id') id: string,

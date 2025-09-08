@@ -17,10 +17,10 @@ export class CreateProductWithImagesDto {
   price: number;
 
   @IsOptional()
-  @IsNumber({}, { message: 'Discount price should be number!' })
-  @Min(0, { message: 'Discount price should be greater than or equal to 0!' })
+  @IsNumber({}, { message: 'Discount percentage should be number!' })
+  @Min(0, { message: 'Discount percentage should be greater than or equal to 0!' })
   @Type(() => Number)
-  discountPrice?: number;
+  discountPercentage?: number;
 
   @IsOptional()
   @IsNumber({}, { message: 'Stock should be number!' })
