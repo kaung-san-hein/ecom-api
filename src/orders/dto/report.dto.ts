@@ -31,6 +31,7 @@ export class OrderReportDto {
   averageOrderValue: number;
   topProducts: TopProductDto[];
   orderStatusDistribution: { [status: string]: number };
+  confirmedCancelledDistribution: { [status: string]: number };
   recentOrders: RecentOrderDto[];
   yearlyComparison: YearlyComparisonDto;
 }

@@ -87,6 +87,12 @@ export class OrdersController {
     return await this.ordersService.getReport();
   }
 
+  @Get('report/yearly')
+  @UseGuards(AuthorizeGuard([Roles.ADMIN]))
+  async getOrderReportByYear() {
+    return await this.ordersService.getOrderReportByYear();
+  }
+
   @Get(':id')
   async findOne(
     @Param('id') id: string,

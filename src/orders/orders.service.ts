@@ -219,6 +219,7 @@ export class OrdersService {
       averageOrderValue: 0,
       topProducts: [],
       orderStatusDistribution: {},
+      confirmedCancelledDistribution: {},
       recentOrders: [],
       yearlyComparison: {}
     };
@@ -233,10 +234,11 @@ export class OrdersService {
       report.monthlyOrders[year] = Array(12).fill(0);
       report.monthlyRevenue[year] = Array(12).fill(0);
 
-      // Get all orders and filter by year in JavaScript
+      // Get all confirmed orders and filter by year in JavaScript
       const allOrders = await this.orderRepository
         .createQueryBuilder('order')
         .select(['order.date', 'order.total'])
+        .where('order.status = :status', { status: 'confirmed' })
         .getMany();
 
       // Filter orders for this year
@@ -271,10 +273,13 @@ export class OrdersService {
       }
     }
 
-    // Get overall statistics using a simpler approach
+    // Get overall statistics using a simpler approach (confirmed orders only)
     try {
-      const totalOrders = await this.orderRepository.count();
-      const allOrders = await this.orderRepository.find({ select: ['total'] });
+      const totalOrders = await this.orderRepository.count({ where: { status: 'confirmed' } });
+      const allOrders = await this.orderRepository.find({ 
+        select: ['total'],
+        where: { status: 'confirmed' }
+      });
       
       const totalRevenue = allOrders.reduce((sum, order) => sum + Number(order.total || 0), 0);
       const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
@@ -292,16 +297,18 @@ export class OrdersService {
 
 
 
-    // Get top selling products
+    // Get top selling products (confirmed orders only)
     try {
       const topProducts = await this.orderItemRepository
         .createQueryBuilder('orderItem')
         .leftJoin('orderItem.product', 'product')
+        .leftJoin('orderItem.order', 'order')
         .select([
           'product.name as productName',
           'SUM(orderItem.quantity) as totalQuantity',
           'SUM(orderItem.subtotal) as totalRevenue'
         ])
+        .where('order.status = :status', { status: 'confirmed' })
         .groupBy('product.id, product.name')
         .orderBy('totalQuantity', 'DESC')
         .limit(10)
@@ -335,7 +342,24 @@ export class OrdersService {
       }
     });
 
-    // Get recent orders (last 10)
+    // Get confirmed and cancelled orders distribution only
+    const confirmedCancelledDistribution = await this.orderRepository
+      .createQueryBuilder('order')
+      .select([
+        'order.status as status',
+        'COUNT(order.id) as count'
+      ])
+      .where('order.status IN (:...statuses)', { statuses: ['confirmed', 'cancelled'] })
+      .groupBy('order.status')
+      .getRawMany();
+
+    confirmedCancelledDistribution.forEach(item => {
+      if (item.status && item.count) {
+        report.confirmedCancelledDistribution[item.status] = parseInt(item.count) || 0;
+      }
+    });
+
+    // Get recent orders (last 10, confirmed only)
     const recentOrders = await this.orderRepository
       .createQueryBuilder('order')
       .leftJoin('order.user', 'user')
@@ -346,6 +370,7 @@ export class OrdersService {
         'order.status as status',
         'user.name as customerName'
       ])
+      .where('order.status = :status', { status: 'confirmed' })
       .orderBy('order.createdAt', 'DESC')
       .limit(10)
       .getRawMany();
@@ -360,13 +385,14 @@ export class OrdersService {
         customerName: order.customerName || 'Unknown'
       }));
 
-    // Get year-over-year comparison
+    // Get year-over-year comparison (confirmed orders only)
     const yearlyData = {};
     
-    // Get all orders and filter by years in JavaScript
+    // Get all confirmed orders and filter by years in JavaScript
     const allOrdersForComparison = await this.orderRepository
       .createQueryBuilder('order')
       .select(['order.date', 'order.total'])
+      .where('order.status = :status', { status: 'confirmed' })
       .getMany();
 
     // Filter orders for the specified years
@@ -400,5 +426,38 @@ export class OrdersService {
     report.yearlyComparison = yearlyData;
 
     return report;
+  }
+
+  async getOrderReportByYear() {
+    // Total order graph by year (2023, 2024, 2025)
+    // Only for confirmed orders
+    const years = [2023, 2024, 2025];
+    
+    // Get all confirmed orders
+    const confirmedOrders = await this.orderRepository
+      .createQueryBuilder('order')
+      .select(['order.date', 'order.total'])
+      .where('order.status = :status', { status: 'confirmed' })
+      .getMany();
+
+    // Initialize yearly data structure
+    const yearlyData = {};
+    years.forEach(year => {
+      yearlyData[year] = {
+        orders: 0,
+        revenue: 0
+      };
+    });
+
+    // Filter and group orders by year
+    confirmedOrders.forEach(order => {
+      const orderYear = new Date(order.date).getFullYear();
+      if (years.includes(orderYear)) {
+        yearlyData[orderYear].orders++;
+        yearlyData[orderYear].revenue += Number(order.total) || 0;
+      }
+    });
+
+    return yearlyData;
   }
 } 
