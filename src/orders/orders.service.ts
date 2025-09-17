@@ -57,7 +57,15 @@ export class OrdersService {
         throw new NotFoundException(`Insufficient stock for product ${product.name}!`);
       }
 
-      const subtotal = product.price * item.quantity;
+      // Calculate subtotal with discount percentage
+      let subtotal = product.price * item.quantity;
+      
+      // Apply discount if discountPercentage exists and is greater than 0
+      if (product.discountPercentage && product.discountPercentage > 0) {
+        const discountAmount = (product.price * product.discountPercentage / 100) * item.quantity;
+        subtotal = subtotal - discountAmount;
+      }
+
       total += subtotal;
 
       orderItems.push({
