@@ -5,7 +5,7 @@ import { UpdateProductWithImagesDto } from './dto/update-product-with-images.dto
 import { ProductResponseDto } from './dto/product-response.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ProductEntity } from './entities/product.entity';
-import { Repository, Like, Between } from 'typeorm';
+import { Repository } from 'typeorm';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -240,17 +240,38 @@ export class ProductsService {
                   updateProductDto.isFeatured,
     };
 
-    const productData = {
+    // Update the product entity with all fields except foreign keys first
+    const { category_id, brand_id, ...otherFields } = processedDto;
+    Object.assign(rawProduct, otherFields);
+    rawProduct.images = imagePaths;
+    
+    // Explicitly handle foreign key updates if provided
+    if (updateProductDto.category_id !== undefined) {
+      rawProduct.category_id = updateProductDto.category_id;
+    }
+    if (updateProductDto.brand_id !== undefined) {
+      rawProduct.brand_id = updateProductDto.brand_id;
+    }
+    
+    // Use update method to ensure foreign keys are properly saved
+    const updateData: any = {
       ...processedDto,
       images: imagePaths,
     };
-
-    Object.assign(rawProduct, productData);
-    const savedProduct = await this.productRepository.save(rawProduct);
+    
+    // Explicitly include foreign keys in update data
+    if (updateProductDto.category_id !== undefined) {
+      updateData.category_id = updateProductDto.category_id;
+    }
+    if (updateProductDto.brand_id !== undefined) {
+      updateData.brand_id = updateProductDto.brand_id;
+    }
+    
+    await this.productRepository.update(id, updateData);
     
     // Fetch the product with relationships
     const productWithRelations = await this.productRepository.findOne({
-      where: { id: savedProduct.id },
+      where: { id },
       relations: ['category', 'brand'],
     });
     
@@ -281,9 +302,19 @@ export class ProductsService {
   }
 
   async updateStock(id: number, quantity: number): Promise<ProductResponseDto> {
-    const product = await this.findOne(id);
-    product.stock = quantity;
-    const savedProduct = await this.productRepository.save(product);
+    // Get the raw product entity (without domain prefix in images)
+    const rawProduct = await this.productRepository.findOne({
+      where: { id },
+      relations: ['category', 'brand'],
+    });
+
+    if (!rawProduct) {
+      throw new NotFoundException('Product not found!');
+    }
+
+    rawProduct.stock = quantity;
+    const savedProduct = await this.productRepository.save(rawProduct);
+    
     return this.transformProduct(savedProduct);
   }
 
